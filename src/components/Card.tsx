@@ -1,0 +1,89 @@
+import type { Card as CardType } from "../types";
+
+type CardProps = {
+  i: number;
+  j: number;
+  c: CardType;
+  onFlip: (c: CardType) => void;
+};
+
+function Card({ i, j, c, onFlip }: CardProps) {
+  const transform = `translate(${i * 80},${j * 100})`;
+  const color = //背景色
+    c.matched >= 0
+      ? ["pink", "skyblue", "palegreen", "yellow"][c.matched]
+      : c.flipped
+      ? "white"
+      : "gray";
+  const digit = (c.flipped || c.matched >= 0) ? (c.id % 13 + 1) : "";//そうでないと空文字
+
+  function mark(c: CardType) {
+    if (!(c.flipped || c.matched >= 0)) return "";
+    if (c.id < 13) return "♥";
+    if (c.id < 26) return "♦";
+    if (c.id < 39) return "♠";
+    return "♣";
+  }
+
+  function scolor(c: CardType) {
+    return c.id < 26 ? "red" : "black";
+  }
+
+  return (
+    <g transform={transform} onClick={() => onFlip(c)}>
+      
+      {c.flipped || c.matched >=0 ? (
+        <>
+        <rect width={67} height={100} fill={color} stroke="black" rx={8}></rect>
+        <text x={20} y={20} stroke={scolor(c)} fill={scolor(c)}>
+          {mark(c)}
+        </text>
+        <text x={20} y={40} stroke="black">
+          {digit}
+        </text>
+        </>
+      ) : (
+        <image href="/images/z01.gif" width={67} height={100} />
+      )}
+    </g>
+  );
+}
+export default Card
+
+//function Card({i,j,c}:{i:number,j:number,c:Card}){
+//  const transform = "translate("+(i*50)+","+(j*100)+")";
+//  const color = c.matched >= 0? ["pink","skyblue","palegreen","yellow"][c.matched] :(c.flipped? "white": "gray");
+//  const digit = c.flipped? (c.id % 13 + 1) : "";
+//  function suit(c){
+//    if (!c.flipped){
+//      return "";
+//    }
+//    if (c.id < 13){
+//      return "♥";
+//    }
+//    else if (c.id < 26){
+//      return "♦";
+//    }
+//    else if (c.id < 39){
+//      return "♠";
+//    }
+//    else {
+//      return "♣";
+//    }
+//  }
+//  function scolor(c){
+//    if (c.id < 26){
+//      return "red";
+//    }
+//    else{
+//      return "black";
+//    }
+//  }
+//
+//  return <g transform={transform} onClick={()=>flip(c)}>
+//    <rect width={50} height={100} fill={color} stroke="white"></rect>
+//    <text x={20} y={20} stroke={scolor(c)} fill={scolor(c)}>{suit(c)}</text>
+//    <text x={20} y={40} stroke="black">{digit}</text>
+//  </g>;
+//}
+

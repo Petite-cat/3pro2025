@@ -1,0 +1,298 @@
+import {nowInSec, uuidV4, SkyWayStreamFactory, SkyWayContext, SkyWayRoom, SkyWayAuthToken, LocalDataStream } from '@skyway-sdk/room';
+import { useCallback,  useRef, useState } from 'react'
+import {Box, Stack, Button, Typography} from '@mui/material';
+
+
+const token = new SkyWayAuthToken({
+  jti: uuidV4(),
+  iat: nowInSec(),
+  exp: nowInSec() + 60 * 60 * 24,
+  version: 3,
+  scope: {
+    appId: "b167f29e-441e-4232-84be-d97385c9e6ab",
+    rooms: [
+      {
+        name: "*",
+        methods: ["create", "close", "updateMetadata"],
+        member: {
+          name: "*",
+          methods: ["publish", "subscribe", "updateMetadata"],
+        },
+      },
+    ],
+  },
+}).encode("6gaA2L1uyOe21JlTuc6EAIvDZHLSQ/7uCwqkEfuT8h8=");
+
+function App() {
+  type Player = { id: string; score: number };
+  type Card = { id: number; flipped: boolean; matched: number };
+  type GameState = {
+    players: Player[];
+    currentTurn: number; // index into players
+    cards: Card[];
+    started: boolean;
+  };
+
+  const [dataStream, setDataStream] = useState<LocalDataStream>();
+  const [ me, setMe ] = useState<any>(null);
+  const [ gameState, setGameState ] = useState<GameState>({players:[], currentTurn:0, cards: [], started: false})
+  const [ imhost, setImhost ] = useState(false);
+  const roomRef = useRef<any>(null);
+  
+  
+  const onJoinClick = useCallback(async () => {
+    if ( token == null) return;
+
+    const context = await SkyWayContext.Create(token);
+
+    // ルームを取得、または新規作成
+    const room = await SkyWayRoom.FindOrCreate(context, {
+      type: 'p2p',
+      name: 'react-room',
+    });
+    roomRef.current = room;
+
+    const me = await room.join();
+    setMe(me);
+
+    
+    if (room.members.length === 1){
+      // I am the host
+      setImhost(true);
+      const cards = [...Array(52).keys()].map(i => ({id:i, flipped:false, matched: -1}));
+      cards.sort((_a, _b) => 0.5 - Math.random()); // card shuffle
+      setGameState({players:gameState.players.splice(0),
+		    currentTurn:gameState.currentTurn,
+		    cards:cards,
+		    started:gameState.started
+      });
+    }
+    
+    const data = await SkyWayStreamFactory.createDataStream();
+    await me.publish(data);
+    await setDataStream(data);
+
+    room.publications.forEach(async (p) => {
+      // 自分のは subscribe しない
+      if (p.publisher.id === me.id) return;
+      if (p.contentType !== "data") return;
+      // すでに subscribe 済みならスキップ
+      const already = me.subscriptions.some(sub => sub.publication.id === p.id);
+      if (!already) {
+	const sub = await me.subscribe(p);
+	// @ts-ignore
+	sub.stream.onData.add((d:any)=>{
+	  const mesg = JSON.parse(d);
+	  console.log(mesg.newstate);
+	  if (mesg.newstate !== null) {
+	    setGameState(mesg.newstate);
+	  }
+	});
+      }
+    });
+
+    room.onMemberJoined.add((_e) => {
+      if (imhost){
+	const newstate = {players:gameState.players.splice(0),
+			  currentTurn:gameState.currentTurn,
+			  cards:gameState.cards,
+			  started:gameState.started
+	};
+	setGameState(newstate);
+	data.write(JSON.stringify(newstate));
+	console.log(JSON.stringify(gameState));
+      }
+    });
+    // その後に参加してきた人の情報を取得
+    room.onStreamPublished.add(async (e) => {
+      if (e.publication.publisher.id !== me.id && e.publication.contentType === "data") {
+	console.log(e.publication.publisher.id, me.id);
+	const sub = await me.subscribe(e.publication);
+	// @ts-ignore
+	sub.stream.onData?.add((d:any)=>{
+	  const mesg = JSON.parse(d);
+	  console.log(mesg.newstate);
+	  if (mesg.newstate !== null) {
+	    setGameState(mesg.newstate);
+	  }
+	});
+      }
+    });
+  }, [token]);
+
+  function flip(card:Card){
+    if (gameState.players[gameState.currentTurn].id !== me.id){
+      return;
+    }
+    if (card.matched >= 0){
+      return;
+    }
+    const cards = gameState.cards.map((c)=>{
+      if (c.id == card.id){
+	return {id:c.id, flipped:true, matched:c.matched};
+      }
+      else{
+	return c;
+      }
+    })
+    const tmpState = {cards:cards,
+		      players:gameState.players,
+		      currentTurn:gameState.currentTurn,
+		      started:gameState.started
+    };
+    setGameState(tmpState);
+    dataStream?.write(JSON.stringify({newstate:tmpState}));
+    
+    const flippedCards = cards.filter((c)=>c.flipped);
+    let turnAdd = 0;
+    console.log(flippedCards);
+
+    function newCards(){
+      if (flippedCards.length == 2 && (flippedCards[0].id % 13 != flippedCards[1].id % 13)){
+	turnAdd = 1;
+	return cards.map((c) => ({id: c.id, flipped:false, matched:c.matched}))
+      }
+      //else if (flippedCards.length == 2 && (flippedCards[0].id % 13 == flippedCards[2].id % 13)){
+      else if (flippedCards.length == 2 && (flippedCards[0].id % 13 == flippedCards[1].id % 13)){
+	return cards.map((c) => {
+	  if (c.id == flippedCards[0].id || c.id == flippedCards[1].id){
+	    return {id: c.id, flipped:false, matched:gameState.currentTurn};
+	  }
+	  else{
+	    return {id: c.id, flipped:false, matched:c.matched};
+	  }
+	})
+      }
+      else {
+	return cards;
+      }
+    }
+    const newcards = newCards()
+    const newState = {cards:newcards,
+		      players:gameState.players,
+		      currentTurn:(gameState.currentTurn + turnAdd) % gameState.players.length,
+		      started: gameState.started
+    };
+
+    if (flippedCards.length ==2){
+      setTimeout(() => {
+	setGameState(newState);
+	dataStream?.write(JSON.stringify({newstate:newState}));
+      }, 2000); // 2000ms = 2秒
+    }
+  }
+  
+    
+  function Card({i,j,c}:{i:number,j:number,c:Card}){
+    const transform = "translate("+(i*50)+","+(j*100)+")";
+    const color = c.matched >= 0? ["pink","skyblue","palegreen","yellow"][c.matched] :(c.flipped? "white": "gray");
+    const digit = c.flipped? (c.id % 13 + 1) : "";
+    return <g transform={transform} onClick={()=>flip(c)}>
+      <rect width={50} height={100} fill={color} stroke="white"></rect>
+      <text x={20} y={20} stroke="black">{digit}</text>
+    </g>;
+  }
+
+  function Cards(){
+    if (me === null) {
+      return <></>
+    }
+    else {
+      return gameState.cards.map(
+	(c,idx) => <Card key={"card"+c.id} i={idx%13}  j={Math.floor(idx/13)} c={c}/>
+      );
+    }
+  }
+  
+  function Board(){
+    if (gameState.started){
+      return <svg width={"800"} height={"400"}>
+	<Cards/>
+      </svg>;
+    }
+    else if (me !== null){
+      return <svg width={"800"} height={"400"}>
+	<text x={200} y={200} fontSize={"100px"} stroke={"black"}> お待ち下さい</text>
+      </svg>;
+    }
+    
+  }
+    
+  function JoinButton(){
+    if (me === null) {
+      return <Button variant="contained" onClick={onJoinClick}>join</Button>;
+    }
+    else {
+      return <></>;
+    }
+  }
+
+  function StartButton(){
+    if (me !== null && imhost && !gameState.started) {
+    //if (me !== null && imhost ) {
+      return <Button variant="contained" onClick={onStartClick}>Start Game</Button>;
+    }
+    else {
+      return <></>;
+    }
+  }
+
+  function onStartClick(){
+    const players = roomRef.current.members.map((m:any) => ({
+      id: m.id,
+      name: m.name ?? "unknown",
+    }));
+    const status = {cards:gameState.cards,
+		    players,
+		    currentTurn:gameState.currentTurn,
+		    started:true}
+    setGameState(status);
+    dataStream?.write(JSON.stringify({newstate:status}));
+  }
+
+  function Turn(){
+    if (!gameState) return;
+    if (gameState.players.length == 0) return <></>;
+    if (gameState.cards.filter((c)=>c.matched >= 0).length == gameState.cards.length){
+      return <Typography > {"Finished"} </Typography>;
+    }
+    if (gameState.players[gameState.currentTurn].id === me.id){
+      return <Typography > {"Your Turn"} </Typography>;
+    }
+    else{
+      return <Typography > {"Wait"} </Typography>;
+    }
+  }
+
+  function Standings(){
+    const score=[...Array(gameState.players.length)].map((_p)=>0);
+    gameState.cards.forEach((c)=> {if (c.matched >= 0){
+      score[c.matched]++;
+    }})
+    return score.map((s,i)=><Typography key={"standing"+i}> {i+1}{":"}{s} </Typography>);
+  }
+  
+  return(
+    <Stack
+    >
+      <Stack direction="row" spacing={1}>
+	<JoinButton /> <StartButton /> <Turn />
+      </Stack>
+      <Box
+	sx={{
+	  display: "flex",
+	  justifyContent: "center",
+	  alignItems: "center",
+	  width: "100%",   // 親幅いっぱいを確保
+	}}
+      >
+	<Board /> {/* SVG 800x400 */}
+      </Box>
+      <Stack>
+	<Standings/>
+      </Stack>
+    </Stack>
+  )
+}
+
+export default App
