@@ -1,4 +1,5 @@
 import type { Card as CardType } from "../types";
+import z01 from "../assets/z01.gif"
 
 type CardProps = {
   i: number;
@@ -43,7 +44,7 @@ function Card({ i, j, c, onFlip }: CardProps) {
         </text>
         </>
       ) : (
-        <image href="/images/z01.gif" width={67} height={100} />
+        <image href={z01} width={67} height={100} />
       )}
     </g>
   );
