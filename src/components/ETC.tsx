@@ -52,7 +52,7 @@ export function Standings({gameState}:StandingsProps){
       {gameState.players[i].nickname} {i+1}{":"}{s} 
     </Typography>);
   return <>
-          <h3>得点</h3>
+          {gameState.started? <h3>得点</h3> : <></>}
           {s}
           </>
 }
