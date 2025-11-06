@@ -208,6 +208,7 @@ function App() {
   function isMyturn(me:any, gameState:any){
     return (gameState.players[gameState.currentTurn].id == me.id);
   }
+
   
   function move(event:any){
     if (!isMyturn(me,gameState)) return;
