@@ -205,8 +205,12 @@ function App() {
     dataStream?.write(JSON.stringify({newstate:status}));
   }
 
+  function isMyturn(me:any, gameState:any){
+    return (gameState.players[gameState.currentTurn].id == me.id);
+  }
+  
   function move(event:any){
-    //if(gameState.players[gameState.currentTurn].id 1 != me.id) return;
+    if (!isMyturn(me,gameState)) return;
     const board = boardRef.current;
     const point = board.createSVGPoint();
     point.x = event.clientX;
@@ -223,7 +227,6 @@ function App() {
     setGameState(newstate);
     dataStream?.write(JSON.stringify({newstate:newstate})); //?は、ない場合は何もしない
     console.log(boardP);
-
   }
   
   return(
