@@ -79,43 +79,43 @@ function App() {
       const already = me.subscriptions.some(sub => sub.publication.id === p.id);
       if (!already) {
 	      const sub = await me.subscribe(p);
-	// @ts-ignore
-	sub.stream.onData.add((d:any)=>{
-	  const mesg = JSON.parse(d);
-	  console.log(mesg.newstate);
-	  if (mesg.newstate !== null) {
-	    setGameState(mesg.newstate);
-	  }
-	});
+      	// @ts-ignore
+        sub.stream.onData.add((d:any)=>{
+          const mesg = JSON.parse(d);
+          console.log(mesg.newstate);
+          if (mesg.newstate !== null) {
+            setGameState(mesg.newstate);
+          }
+        });
       }
     });
 
     room.onMemberJoined.add((_e) => {
       if (imhost){
-	const newstate = {players:gameState.players.splice(0),
+	      const newstate = {players:gameState.players.splice(0),
 			  currentTurn:gameState.currentTurn,
 			  cards:gameState.cards,
 			  started:gameState.started,
         cursor:gameState.cursor,
-	};
-	setGameState(newstate);
-	data.write(JSON.stringify(newstate));
-	console.log(JSON.stringify(gameState));
+	      };
+        setGameState(newstate);
+        data.write(JSON.stringify(newstate));
+        console.log(JSON.stringify(gameState));
       }
     });
     // その後に参加してきた人の情報を取得
     room.onStreamPublished.add(async (e) => {
       if (e.publication.publisher.id !== me.id && e.publication.contentType === "data") {
-	console.log(e.publication.publisher.id, me.id);
-	const sub = await me.subscribe(e.publication);
-	// @ts-ignore
-	sub.stream.onData?.add((d:any)=>{
-	  const mesg = JSON.parse(d);
-	  console.log(mesg.newstate);
-	  if (mesg.newstate !== null) {
-	    setGameState(mesg.newstate);
-	  }
-	});
+        console.log(e.publication.publisher.id, me.id);
+        const sub = await me.subscribe(e.publication);
+        // @ts-ignore
+        sub.stream.onData?.add((d:any)=>{
+          const mesg = JSON.parse(d);
+          console.log(mesg.newstate);
+          if (mesg.newstate !== null) {
+            setGameState(mesg.newstate);
+          }
+        });
       }
     });
   }, [token]);
@@ -126,6 +126,12 @@ function App() {
     if (gameState.players[gameState.currentTurn].id !== me.id){ //自分の番だけflip出来る。
       return;
     }
+
+    const currentlyFlipped = gameState.cards.filter((c) => c.flipped && c.matched < 0);
+    if (currentlyFlipped.length >= 2) {
+    return;
+  }
+
     if (card.matched >= 0){ // マッチしたカードはflip出来ない
       return;
     }
@@ -182,7 +188,7 @@ function App() {
       setTimeout(() => {
 	      setGameState(newState);
 	      dataStream?.write(JSON.stringify({newstate:newState}));
-      }, 2000); // 2000ms = 2秒
+      }, 1800); // 2000ms = 2秒
     }
   }
   
@@ -205,8 +211,12 @@ function App() {
     dataStream?.write(JSON.stringify({newstate:status}));
   }
 
+  function isMyturn(me:any, gameState:any){
+    return (gameState.players[gameState.currentTurn].id == me.id);
+  }
+
   function move(event:any){
-    //if(gameState.players[gameState.currentTurn].id 1 != me.id) return;
+    if (!isMyturn(me,gameState)) return;
     const board = boardRef.current;
     const point = board.createSVGPoint();
     point.x = event.clientX;

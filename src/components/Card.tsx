@@ -35,16 +35,24 @@ function Card({ i, j, c, onFlip }: CardProps) {
       
       {c.flipped || c.matched >=0 ? (
         <>
-        <rect width={67} height={100} fill={color} stroke="black" rx={8}></rect>
-        <text x={20} y={20} stroke={scolor(c)} fill={scolor(c)}>
+        <rect width={63} height={95} fill={color} stroke="black" rx={8}></rect>
+        <text x={4} y={17} fontSize={13} stroke={scolor(c)} fill={scolor(c)}>
+          {digit}{mark(c)}
+        </text>
+
+        <text x={61} y={88} fontSize={13} stroke={scolor(c)} fill={scolor(c)} textAnchor="end">
+          {digit}{mark(c)}
+        </text>
+
+        <text x={32} y={57} fontSize={28} fill={scolor(c)} textAnchor="middle">
           {mark(c)}
         </text>
-        <text x={20} y={40} stroke="black">
+        {/*<text x={20} y={40} stroke="black">
           {digit}
-        </text>
+      </text>*/}
         </>
       ) : (
-        <image href={z01} width={67} height={100} />
+        <image href={z01} width={67} height={95} />
       )}
     </g>
   );

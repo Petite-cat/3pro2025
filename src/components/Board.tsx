@@ -23,7 +23,8 @@ function Cursor({me, gameState}:any){
   }
   return(
     <text x={gameState.cursor.x} y={gameState.cursor.y} 
-    fontSize={20} stroke="red">{gameState.players[gameState.currentTurn].nickname}</text>
+    fontSize={20} stroke="red">
+      {gameState.players[gameState.currentTurn].nickname}</text>
   )
 }
 
@@ -31,7 +32,7 @@ const Board=forwardRef<SVGSVGElement, BoardProps>((props, ref)=>{
   const {me, gameState, onFlip, move}:BoardProps = props;
   if (gameState.started){
     return( 
-      <svg ref={ref} width={"800"} height={"400"} onMouseMove={(e)=>move(e)}>
+      <svg ref={ref} width={"1050"} height={"400"} onMouseMove={(e)=>move(e)}>
         <Cards cards={gameState.cards} onFlip={onFlip}/>
         <Cursor me={me} gameState={gameState}/>
       </svg>
