@@ -128,7 +128,7 @@ function App() {
     }
 
     const currentlyFlipped = gameState.cards.filter((c) => c.flipped && c.matched < 0);
-    if (currentlyFlipped.length >= 2) {
+    if (currentlyFlipped.length >= 2 && gameState.players[gameState.currentTurn].id === me.id) {
     return;
   }
 
